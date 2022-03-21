@@ -36,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        picture = (ImageView) findViewById(R.id.picture);
         Button chooseFromAlbum = (Button) findViewById(R.id.choose_from_Album);//从相册选择照片的逻辑部分
         chooseFromAlbum.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -146,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("err0", "zero ");
             Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
             Log.d("???", "zhi:"+bitmap);
-            //picture.setImageBitmap(bitmap);//为什么会崩溃？？？
+            picture.setImageBitmap(bitmap);
             Log.d("err1", "one ");
         }else {
             Toast.makeText(this,"获取图片失败",Toast.LENGTH_SHORT).show();
