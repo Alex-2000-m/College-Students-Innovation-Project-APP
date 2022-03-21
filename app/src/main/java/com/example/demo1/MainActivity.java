@@ -8,11 +8,13 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.ContentUris;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -26,7 +28,12 @@ import android.widget.ImageView;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import java.io.BufferedOutputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.lang.annotation.Target;
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
     public static final int CHOOSE_PHOTO=2;
@@ -51,6 +58,62 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+    public static Bitmap singleThreshold(final Bitmap bm,int digit) {
+
+        int width = bm.getWidth();
+        int height = bm.getHeight();
+        int color;
+        int r, g, b, a;
+
+        Bitmap bmp = Bitmap.createBitmap(width, height
+                , Bitmap.Config.ARGB_8888);//创建一个图片对象
+
+        int[] oldPx = new int[width * height];
+        int[] newPx = new int[width * height];
+        bm.getPixels(oldPx, 0, width, 0, 0, width, height); //获取图片的颜色像素
+
+        for (int j = 0; j < width * height; j++) {
+            //获取单个颜色的argb数据
+            color = oldPx[j];
+            r = Color.red(color);
+            g = Color.green(color);
+            b = Color.blue(color);
+            a = Color.alpha(color);
+            //计算单点的灰度值
+            int gray = (int)((float)r*0.3+(float)g*0.59+(float)b*0.11);
+            //根据阈值对比，低于的设置为黑色，高于的设置为白色
+            if(gray < digit) {
+                gray = 0;
+            } else {
+                gray = 255;
+            }
+            newPx[j] = Color.argb(a,gray,gray,gray);
+        }
+
+        bmp.setPixels(newPx, 0, width, 0, 0, width, height);
+        return bmp;
+    }
+
+    private File saveFile(Bitmap bm,String path, String fileName){
+        File dirFile = new File(path);
+        if(!dirFile.exists()){
+            dirFile.mkdir();
+        }
+        File myCaptureFile = new File(path , fileName);
+        try {
+            BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(myCaptureFile));
+            bm.compress(Bitmap.CompressFormat.JPEG, 80, bos);
+            bos.flush();
+            bos.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return myCaptureFile;
+    }
+
+
     private void openAlbum() {
         Intent intent = new Intent("android.intent.action.GET_CONTENT");
         intent.setType("image/*");
@@ -147,11 +210,17 @@ public class MainActivity extends AppCompatActivity {
             Log.d("err0", "zero ");
             Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
             Log.d("???", "zhi:"+bitmap);
-            picture.setImageBitmap(bitmap);
+            //picture.setImageBitmap(bitmap);
+            Bitmap finalData = singleThreshold(bitmap, 127);//灰度处理
+            picture.setImageBitmap(finalData);
+            //Log.i("finaldata","data:"+finalData);
+            //saveFile(finalData,"D:/testimg","testdata.txt");//还没完成转数组保存写入文件
             Log.d("err1", "one ");
         }else {
             Toast.makeText(this,"获取图片失败",Toast.LENGTH_SHORT).show();
             Log.d("err2", "two ");
         }
     }
+
+
 }
