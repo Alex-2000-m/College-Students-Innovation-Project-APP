@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+import android.app.PendingIntent;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
@@ -16,8 +17,15 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.net.Uri;
+import android.nfc.NdefMessage;
+import android.nfc.NdefRecord;
+import android.nfc.NfcAdapter;
+import android.nfc.Tag;
+import android.nfc.tech.Ndef;
+import android.nfc.tech.NdefFormatable;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -29,9 +37,12 @@ import android.widget.Switch;
 import android.widget.Toast;
 
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.lang.annotation.Target;
 import java.io.File;
 
@@ -39,6 +50,33 @@ public class MainActivity extends AppCompatActivity {
     public static final int CHOOSE_PHOTO=2;
     private ImageView picture;
     private Uri imageUri;
+    byte[] bitmapByte;
+
+
+    //保存byte数组到文件
+    public void save(byte[] bytes){
+        String stringBytes=bytes.toString();
+        FileOutputStream out = null;
+        BufferedWriter writer = null;
+        try {
+            out = openFileOutput("data",Context.MODE_PRIVATE);
+            writer = new BufferedWriter(new OutputStreamWriter(out));
+            writer.write(stringBytes);
+            Log.d("save", "写入成功！"+stringBytes);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (writer!=null){
+                    writer.close();
+                }
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+        }
+    }
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+//    图像处理代码区域
     public static Bitmap singleThreshold(final Bitmap bm,int digit) {
 
         int width = bm.getWidth();
@@ -93,26 +132,7 @@ public class MainActivity extends AppCompatActivity {
         bmp.setPixels(newPx, 0, width, 0, 0, width, height);
         return bmp;
     }
-
-    private File saveFile(Bitmap bm,String path, String fileName){
-        File dirFile = new File(path);
-        if(!dirFile.exists()){
-            dirFile.mkdir();
-        }
-        File myCaptureFile = new File(path , fileName);
-        try {
-            BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(myCaptureFile));
-            bm.compress(Bitmap.CompressFormat.JPEG, 80, bos);
-            bos.flush();
-            bos.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return myCaptureFile;
-    }
-
+//    图像代码处理区域
 
     private void openAlbum() {
         Intent intent = new Intent("android.intent.action.GET_CONTENT");
@@ -137,16 +157,16 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         switch (requestCode) {
             case CHOOSE_PHOTO:
-                Log.d("testmsg1","进入选择图片阶段");
+                Log.d("choosePhotoStage","进入选择图片阶段");
 
                     if(Build.VERSION.SDK_INT>=19){
                         //4.4以上系统使用这个方法处理图片
                         handleImageOnKitKat(data);
-                        Log.d("1","1");
+                        Log.d("over4.4","over4.4");
                     }else{
                         //4.4以下系统使用这个方法处理图片
                         handleImageBeforeKitKat(data);
-                        Log.d("2","2");
+                        Log.d("below4.4","below4.4");
                     }
 
                 break;
@@ -160,10 +180,8 @@ public class MainActivity extends AppCompatActivity {
         String imagePath = null;
         Uri uri = data.getData();
         if (DocumentsContract.isDocumentUri(this, uri)) {
-            Log.d("a","a");
             String docId = DocumentsContract.getDocumentId(uri);
             if ("com.android.providers.media.documents".equals(uri.getAuthority())) {
-                Log.d("b","b");
                 String id = docId.split(":")[1];
                 String selection = MediaStore.Images.Media._ID + "=" + id;
                 imagePath = getImagePath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, selection);
@@ -171,15 +189,12 @@ public class MainActivity extends AppCompatActivity {
                     Log.e("imagePath","null!!!!");
                 }
             } else if ("com.android.providers.downloads.documents".equals(uri.getAuthority())) {
-                Log.d("c","c");
                 Uri contentUri= ContentUris.withAppendedId(Uri.parse("content://downloads/public_downloads"),Long.valueOf(docId));
                 imagePath = getImagePath(contentUri,null);
             }
         }else if("content".equalsIgnoreCase(uri.getScheme())){
-            Log.d("d","d");
             imagePath=getImagePath(uri,null);
         }else if("file".equalsIgnoreCase(uri.getScheme())){
-            Log.d("e","e");
             imagePath=uri.getPath();
         }
         displayImage(imagePath);
@@ -204,23 +219,28 @@ public class MainActivity extends AppCompatActivity {
         return path;
     }
 
-    private void displayImage(String imagePath){
-        Log.d("showmsg","进入展示图片的阶段");
-        if(imagePath!=null){
-            Log.d("err0", "zero ");
+//展示图片
+    private void displayImage(String imagePath) {
+        Log.d("showmsg", "进入展示图片的阶段");
+        if (imagePath != null) {
             Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-            Log.d("???", "zhi:"+bitmap);
+            Log.d("???", "zhi:" + bitmap);
             //picture.setImageBitmap(bitmap);
-            Bitmap finalData = singleThreshold(bitmap, 127);//灰度处理
-            picture.setImageBitmap(finalData);
-            //Log.i("finaldata","data:"+finalData);
-            //saveFile(finalData,"D:/testimg","testdata.txt");//还没完成转数组保存写入文件
-            Log.d("err1", "one ");
-        }else {
-            Toast.makeText(this,"获取图片失败",Toast.LENGTH_SHORT).show();
-            Log.d("err2", "two ");
+            Bitmap twoColorBitmap = singleThreshold(bitmap, 127);//灰度、二值化处理,twoColorBitmap变量是处理后的图像的bitmap对象
+            picture.setImageBitmap(twoColorBitmap);
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            if (twoColorBitmap != null) {
+                twoColorBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                bitmapByte = stream.toByteArray();//暂时变成byte数组
+                if (bitmapByte != null) {
+                    Log.d("bitmapByte", "bitmapByte: " + bitmapByte.toString());//显示byte的值
+                    save(bitmapByte);
+                }
+            } else {
+                Toast.makeText(this, "获取图片失败", Toast.LENGTH_SHORT).show();
+            }
         }
+
+
     }
-
-
 }
