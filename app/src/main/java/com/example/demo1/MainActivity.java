@@ -51,31 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageView picture;
     private Uri imageUri;
     byte[] bitmapByte;
-
-
-    //保存byte数组到文件
-    public void save(byte[] bytes){
-        String stringBytes=bytes.toString();
-        FileOutputStream out = null;
-        BufferedWriter writer = null;
-        try {
-            out = openFileOutput("data",Context.MODE_PRIVATE);
-            writer = new BufferedWriter(new OutputStreamWriter(out));
-            writer.write(stringBytes);
-            Log.d("save", "写入成功！"+stringBytes);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (writer!=null){
-                    writer.close();
-                }
-            }catch (IOException e){
-                e.printStackTrace();
-            }
-        }
-    }
-
+    Bitmap compressImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
 //    图像处理代码区域
     public static Bitmap singleThreshold(final Bitmap bm,int digit) {
 
@@ -132,7 +109,28 @@ public class MainActivity extends AppCompatActivity {
         bmp.setPixels(newPx, 0, width, 0, 0, width, height);
         return bmp;
     }
-//    图像代码处理区域
+
+
+    public static Bitmap getImage(String srcPath){
+        BitmapFactory.Options newOpts = new BitmapFactory.Options();
+        newOpts.inJustDecodeBounds = true;
+        Bitmap bitmap = BitmapFactory.decodeFile(srcPath,newOpts);
+        newOpts.inJustDecodeBounds = false;
+        int w= newOpts.outWidth;
+        int h= newOpts.outHeight;
+        float hh = 200f;
+        float ww = 200f;
+        int be = 0;
+        if (w>h && w>ww){
+            be=(int)(newOpts.outWidth/ww);
+        }else if (w<=h && h>hh){
+            be=(int)(newOpts.outHeight/hh);
+        }
+        newOpts.inSampleSize=be;
+        bitmap = BitmapFactory.decodeFile(srcPath,newOpts);
+        return bitmap;
+    }
+//      图像代码处理区域
 
     private void openAlbum() {
         Intent intent = new Intent("android.intent.action.GET_CONTENT");
@@ -140,18 +138,6 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(intent, CHOOSE_PHOTO);//打开相册
     }
 
-    public void onRequestPermissionResult(int requestCode,String[] permissions,int[] grantResults){
-        switch (requestCode){
-            case 1:
-                if(grantResults.length>0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                    openAlbum();
-                }else {
-                    Toast.makeText(this, "拒绝授权",Toast.LENGTH_LONG);
-                }
-                break;
-            default:
-        }
-    }
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -197,13 +183,15 @@ public class MainActivity extends AppCompatActivity {
         }else if("file".equalsIgnoreCase(uri.getScheme())){
             imagePath=uri.getPath();
         }
-        displayImage(imagePath);
+        compressImage=getImage(imagePath);
+        displayImage(compressImage);
     }
     private void handleImageBeforeKitKat(Intent data){
         Log.d("test1","handle2方法被调用");
         Uri uri = data.getData();
         String imagePath=getImagePath(uri,null);
-        displayImage(imagePath);
+        compressImage=getImage(imagePath);
+        displayImage(compressImage);
     }
 
     @SuppressLint("Range")
@@ -220,10 +208,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
 //展示图片
-    private void displayImage(String imagePath) {
+    private void displayImage(Bitmap compressImage) {
         Log.d("showmsg", "进入展示图片的阶段");
-        if (imagePath != null) {
-            Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+            Bitmap bitmap = compressImage;
             Log.d("???", "zhi:" + bitmap);
             //picture.setImageBitmap(bitmap);
             Bitmap twoColorBitmap = singleThreshold(bitmap, 127);//灰度、二值化处理,twoColorBitmap变量是处理后的图像的bitmap对象
@@ -234,13 +221,9 @@ public class MainActivity extends AppCompatActivity {
                 bitmapByte = stream.toByteArray();//暂时变成byte数组
                 if (bitmapByte != null) {
                     Log.d("bitmapByte", "bitmapByte: " + bitmapByte.toString());//显示byte的值
-                    save(bitmapByte);
                 }
             } else {
                 Toast.makeText(this, "获取图片失败", Toast.LENGTH_SHORT).show();
             }
-        }
-
-
     }
 }
