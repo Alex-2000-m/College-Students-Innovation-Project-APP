@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.ContentUris;
 import android.content.Context;
@@ -16,6 +17,7 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -28,6 +30,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.LogPrinter;
 import android.view.View;
@@ -45,6 +48,8 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.lang.annotation.Target;
 import java.io.File;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
     public static final int CHOOSE_PHOTO=2;
@@ -73,7 +78,32 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-//    图像处理代码区域
+    //保存byte数组到文件
+    public void save(byte[] bytes) {
+        String stringBytes = bytes.toString();
+//        String stringBytes = Arrays.toString(bytes);
+        FileOutputStream out = null;
+        BufferedWriter writer = null;
+        try {
+            out = openFileOutput("data", Context.MODE_PRIVATE);
+            writer = new BufferedWriter(new OutputStreamWriter(out));
+            writer.write(stringBytes);
+            Log.d("save", "写入成功！" + stringBytes);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (writer != null) {
+                    writer.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    //    图像处理代码区域
     public static Bitmap singleThreshold(final Bitmap bm,int digit) {
 
         int width = bm.getWidth();
@@ -111,25 +141,44 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    public static Bitmap getImage(String srcPath){
-        BitmapFactory.Options newOpts = new BitmapFactory.Options();
-        newOpts.inJustDecodeBounds = true;
-        Bitmap bitmap = BitmapFactory.decodeFile(srcPath,newOpts);
-        newOpts.inJustDecodeBounds = false;
-        int w= newOpts.outWidth;
-        int h= newOpts.outHeight;
-        float hh = 200f;
-        float ww = 200f;
-        int be = 0;
-        if (w>h && w>ww){
-            be=(int)(newOpts.outWidth/ww);
-        }else if (w<=h && h>hh){
-            be=(int)(newOpts.outHeight/hh);
-        }
-        newOpts.inSampleSize=be;
-        bitmap = BitmapFactory.decodeFile(srcPath,newOpts);
-        return bitmap;
+//    public static Bitmap getImage(String srcPath){
+//        BitmapFactory.Options newOpts = new BitmapFactory.Options();
+//        newOpts.inJustDecodeBounds = true;
+//        Bitmap bitmap = BitmapFactory.decodeFile(srcPath,newOpts);
+//        newOpts.inJustDecodeBounds = false;
+//        int w= newOpts.outWidth;
+//        int h= newOpts.outHeight;
+//        float hh = 200f;
+//        float ww = 200f;
+//        int be = 0;
+//        if (w>h && w>ww){
+//            be=(int)(newOpts.outWidth/ww);
+//        }else if (w<=h && h>hh){
+//            be=(int)(newOpts.outHeight/hh);
+//        }
+//        newOpts.inSampleSize=be;
+//        bitmap = BitmapFactory.decodeFile(srcPath,newOpts);
+//        return bitmap;
+//    }
+
+    public static Bitmap resizeBitmap(String imgPath, int w, int h)
+    {
+        Bitmap bitmap = BitmapFactory.decodeFile(imgPath);
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        float scaleWidth = ((float) w) / width;
+        float scaleHeight = ((float) h) / height;
+
+        Matrix matrix = new Matrix();
+        matrix.postScale(scaleWidth, scaleHeight);
+
+        Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);//使用bitmap，从(x,y)点开始，截取宽width，高height，根据matrix进行缩放，filter=true表示对其进行剪裁操作
+        return resizedBitmap;
     }
+
+
+
 //      图像代码处理区域
 
     private void openAlbum() {
@@ -183,14 +232,14 @@ public class MainActivity extends AppCompatActivity {
         }else if("file".equalsIgnoreCase(uri.getScheme())){
             imagePath=uri.getPath();
         }
-        compressImage=getImage(imagePath);
+        compressImage=resizeBitmap(imagePath,200,200);
         displayImage(compressImage);
     }
     private void handleImageBeforeKitKat(Intent data){
         Log.d("test1","handle2方法被调用");
         Uri uri = data.getData();
         String imagePath=getImagePath(uri,null);
-        compressImage=getImage(imagePath);
+        compressImage=resizeBitmap(imagePath,200,200);
         displayImage(compressImage);
     }
 
@@ -220,7 +269,7 @@ public class MainActivity extends AppCompatActivity {
                 twoColorBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
                 bitmapByte = stream.toByteArray();//暂时变成byte数组
                 if (bitmapByte != null) {
-                    Log.d("bitmapByte", "bitmapByte: " + bitmapByte.toString());//显示byte的值
+                    Log.d("bitmapByte", "bitmapByte: " + Arrays.toString(bitmapByte).length());//显示byte的值
                 }
             } else {
                 Toast.makeText(this, "获取图片失败", Toast.LENGTH_SHORT).show();
