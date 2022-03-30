@@ -7,11 +7,13 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+
 import android.content.ContentUris;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+
 import android.net.Uri;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -23,6 +25,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -53,7 +56,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
 
 //      图像代码处理区域
     private void openAlbum() {
@@ -108,6 +110,7 @@ public class MainActivity extends AppCompatActivity {
             imagePath=uri.getPath();
         }
         compressImage=PictureProcess.resizeBitmap(imagePath,200,200);
+
         displayImage(compressImage);
     }
     private void handleImageBeforeKitKat(Intent data){
@@ -115,6 +118,7 @@ public class MainActivity extends AppCompatActivity {
         Uri uri = data.getData();
         String imagePath=getImagePath(uri,null);
         compressImage=PictureProcess.resizeBitmap(imagePath,200,200);
+
         displayImage(compressImage);
     }
 
