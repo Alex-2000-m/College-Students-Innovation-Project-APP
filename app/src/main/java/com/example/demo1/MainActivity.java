@@ -9,6 +9,7 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 
 import android.content.ContentUris;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -23,14 +24,22 @@ import android.nfc.tech.Ndef;
 import android.nfc.tech.NdefFormatable;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
     public static final int CHOOSE_PHOTO=2;
@@ -41,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        //图片代码区域
         picture = (ImageView) findViewById(R.id.picture);
         Button chooseFromAlbum = (Button) findViewById(R.id.choose_from_Album);//从相册选择照片的逻辑部分
         chooseFromAlbum.setOnClickListener(new View.OnClickListener() {
@@ -143,8 +154,51 @@ public class MainActivity extends AppCompatActivity {
         if (twoColorBitmap != null) {
             picture.setImageBitmap(twoColorBitmap);
             Log.d("displayImage", "图片展示成功:"+PictureProcess.bitmapByte.length);//显示byte的值
+            saveImageToGallery(this,twoColorBitmap);
         } else {
             Toast.makeText(this, "获取图片失败", Toast.LENGTH_SHORT).show();
         }
     }
+
+    /**
+     * 保存bitmap到本地
+     */
+    public void saveImageToGallery(Context context, Bitmap bmp) {
+        //检查有没有存储权限
+        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+            Toast.makeText(this, "请至权限中心打开应用权限", Toast.LENGTH_SHORT).show();
+        } else {
+            // 新建目录appDir，并把图片存到其下
+            File appDir = new File(context.getExternalFilesDir(null).getPath()+ "BarcodeBitmap");
+            if (!appDir.exists()) {
+                appDir.mkdir();
+            }
+            String fileName = System.currentTimeMillis() + ".jpg";
+            File file = new File(appDir, fileName);
+            try {
+                FileOutputStream fos = new FileOutputStream(file);
+                bmp.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+                fos.flush();
+                fos.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            // 把file里面的图片插入到系统相册中
+            try {
+                MediaStore.Images.Media.insertImage(context.getContentResolver(),
+                        file.getAbsolutePath(), fileName, null);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+            Toast.makeText(this, fileName, Toast.LENGTH_LONG);
+
+            // 通知相册更新
+            context.sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)));
+        }
+    }
+
 }
